@@ -1,4 +1,3 @@
-cat > README.md << 'README_EOF'
 # minikube-operator-practice
 
 A hands-on exercise in the core "operator" workflow: build a Docker image from an open-source repo's source, then deploy it to a local Kubernetes cluster (minikube) via Helm, all driven through a Makefile.
@@ -28,4 +27,19 @@ This repo targets Redis as the practice app, using the official Docker Library p
 - deploy target overrides the chart's image.registry/image.repository/image.tag to point at the locally built image rather than pulling from a public registry, and sets pullPolicy=IfNotPresent.
 - allowInsecureImages=true is required because this chart (Bitnami's) validates images against a known catalog by default and refuses to deploy unrecognized ones.
 - commonConfiguration override strips two loadmodule directives (RediSearch, ReJSON) baked into the default chart config - those modules only exist in Bitnami's own image, not a vanilla Redis build, and caused the container to abort on startup without this override.
-README_EOF
+
+## Things that went wrong (and why they're instructive)
+
+1. Redis's main source repo isn't self-building. Its docker/Dockerfile.noble is a build environment Dockerfile, not a runnable image - it expects you to docker run it interactively and manually invoke make build inside. Switched to the official Docker Library packaging repo instead, which has a normal single-stage Dockerfile.
+2. Windows line-ending corruption. Git converted a shipped shell script's line endings to CRLF on checkout, breaking its shebang line. Fixed with git config --global core.autocrlf false and a clean re-clone.
+3. Registry mismatch. minikube stores loaded images as docker.io/library/name:tag, but the Helm chart's default image.registry pointed elsewhere - Kubernetes couldn't resolve the reference until both were aligned explicitly.
+4. Bitnami chart assumes Bitnami's image internals. The chart's startup scripts and default Redis config reference paths/modules specific to Bitnami's own container images. Deploying a different vendor's image with the same chart requires overriding those assumptions explicitly.
+
+## Requirements
+
+- Docker Desktop
+- minikube
+- kubectl
+- Helm
+- GNU Make (on Windows: winget install ezwinports.make)
+- A bash-capable shell (Git Bash on Windows)
